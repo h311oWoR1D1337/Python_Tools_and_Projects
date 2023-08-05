@@ -1,0 +1,296 @@
+# Author: @H311oWoR1D1337
+# Credit: David Bombal, Sarah Holderness, Justin Seitz, Tim Arnold, Eric Matthes
+
+# This Tool uses the Python nmap module to scan ports to see if they are open or closed.
+# You'll need to install the following on MacOS for it to execute.
+# Step 1: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" to install homebrew 
+# Step 2: (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> /Users/macbookair/.profile
+# Step 3: eval "$(/opt/homebrew/bin/brew shellenv)"
+# Step 4: brew install python-nmap
+
+# Importing nmap allows me utilize the nmap lib that calls the nmap binary
+
+import nmap
+
+# To validate the formating of the user input I imported re to use Regular Expression.
+
+import re
+
+# Importing json allows for working with json files 
+
+import json
+
+# Importing smtplib creatign and send emails via smtp server
+
+import smtplib
+
+# Importing ssl allows for creating ssl certs for sending emails securely
+
+import ssl
+
+# basename is used for file handling 
+
+from os.path import basename
+
+# MIMEText allows for sending emils via python 
+
+from email.mime.text import MIMEText
+
+# MIMEMultipart is use to add attachments to the emails being sent.
+
+from email.mime.multipart import MIMEMultipart
+
+# MIMEApplication is a subtype of MIMEMultipart and is also used to send Attachment in emails 
+
+from email.mime.application import MIMEApplication
+
+# Regular Expression Pattern to recognise IPv4 addresses.
+
+accepted_ip_input = re.compile("^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
+
+# Regular Expression Pattern to extract the number of ports you want to scan. 
+# The requirment for the script to accept it is low-high port the dash is mandatory(ex 10-100)
+
+accepted_port_range_input = re.compile("([0-9]+)-([0-9]+)")
+
+# Variables for the min port number and max port number.
+
+port_min = 0
+port_max = 65535
+
+# Intro
+
+print("\n****************************************************************")
+print("\n*@H311oWoR1D1337*")
+print("\n*Credit: David Bombal, Sarah Holderness, Eric Matthes, Justin Seitz, Tim Arnold*")
+print("\n****************************************************************")
+
+# Create a list to put the open ports found in.
+
+open_ports = []
+
+# While loop that will take the input of the user and creates a variable called ip_entered.
+
+while True:   
+
+    # Asks for the users input for the ip address they want to scan local or over the web.
+
+    ip_entered = input("\nPlease enter the ip address that you want to scan: ")
+
+    # Checks to see if the input is valid using the .search method on the regular expression defined.
+
+    if accepted_ip_input.search(ip_entered):
+
+        # if the input is valid it will print on the sceen a verifcation it was correct and break the While loop if not it will go back to the beginning of the loop. 
+
+        print(f"{ip_entered} is a valid ip address")
+        break
+
+# While Loop to validate the input of a port range by a user 
+
+while True:
+
+    # You can scan ports 0-65535. This scanner is very slow and doesn't use multithreading so scanning all the ports is not advised. This will print out instructions on the required format of the port range 
+
+    print("Please enter the range of ports you want to scan in format: <int>-<int> (ex would be 60-120), If you want to scan one port you still need min-max (ex 80-80)")
+
+    # This creates a variable named port_range using users input.
+
+    port_range = input("Enter port range: ")
+
+    # Create a variable ports_valid that checks to see if the input is valid using the .search method on the regular expression defined. This converts the input to a new variable.
+
+    port_valid = accepted_port_range_input.search(port_range.replace(" ",""))
+
+    # This takes the new validated input variable port_valid and uses an IF statement to change the port_min and max variables I created earler to the input the user requested, then breaks out of the IF statement.
+
+    if port_valid:
+        port_min = int(port_valid.group(1))
+        port_max = int(port_valid.group(2))
+        break
+
+# This creates a variable name scanner that uses the nmap binary to call the portscanner function the will be used in the next part.
+
+scanner = nmap.PortScanner()
+
+# Here the port temp-variable is created to be ran through a FOR loop using the function range to loop through the min and max ports chosen adding an offset to start the port count at 1.
+
+for port in range(port_min, port_max + 1):
+
+    # for each port in the range the loop will use try to create a new variable result will use the scanner variable to run the equvilent of nmap -oX -p 'port(converted to a string)' -sV 'ip_entered' scan, and feeds it into a json dictonary of the nmap results that look like this (ex.{'nmap': {'command_line': 'nmap -oX - -p 80 -sV 127.0.0.1', 'scaninfo': {'tcp': {'method': 'connect', 'services': '80'}}, 'scanstats': {'timestr': 'Sat Mar  4 10:48:01 2023', 'elapsed': '0.18', 'uphosts': '1', 'downhosts': '0', 'totalhosts': '1'}}, 'scan': {'127.0.0.1': {'hostnames': [{'name': 'localhost', 'type': 'PTR'}], 'addresses': {'ipv4': '127.0.0.1'}, 'vendor': {}, 'status': {'state': 'up', 'reason': 'conn-refused'}, 'tcp': {80: {'state': 'closed', 'reason': 'conn-refused', 'name': 'http', 'product': '', 'version': '', 'extrainfo': '', 'conf': '3', 'cpe': ''}}}}} . 
+
+    try:
+        result = scanner.scan(ip_entered, str(port))
+
+        # This creates a variable port_status pulls info from keys scan, tcp, and state to use later.
+
+        port_status = (result['scan'][ip_entered]['tcp'][port]['state'])
+
+        # Using the port_status variable I print out the port number being scaned and the state of the port.
+
+        print(f"Port {port} is {port_status}")
+
+    # If a port fails to scan this help it conttinue on the loop
+
+    except:
+
+        # print out a message stating the port cannot be scaned.
+
+        print(f"Cannot scan port {port}.")
+
+# Next the program ask if you would like the file save to the current directory.
+
+print("Would you like to save this log file to the current directory?")
+
+# Using the users input of y or n the program creates a save variable.
+
+save = input("y/n: ")
+
+# If the answer is y the program save the file to the pwd.
+
+if save == 'y':
+
+    # This creates a variable called results_file that uses the open() function to create and open a file called nmap_port_scan.txt that is writeable.
+
+    results_file = open('nmap_port_scan.txt', "w")
+
+    # Next it uses jason.dump to store the json dictary created into the results_file with the indent set to 6 for easier reading 
+
+    json.dump(result, results_file, indent=6)
+
+    # This closes the file and completes the save.
+
+    results_file.close()
+
+    #
+
+    print("Would you like to email this log file?")
+
+# If the user chosses n then the program continues.
+
+elif save == 'n':
+
+# This asks if you want to email the file
+
+    quit()
+
+# stores the y/n answer into a variable called email
+
+email = input("y/n: ")
+
+# Runs an IF statement using the users y/n input. If yes it continues if no it quits the program.
+
+if email == 'y':
+
+    # The next parts will go through and create and format the email and attachment. It starts by asking where to send the email from and adds the users input to a variable named from_addr
+
+    print("What is the address you want to send from?")
+    from_addr = input("Enter the Email Address Here: ")
+
+    # Then it asks where to send the email to and adds the users input to the variable to_addr.
+
+    print("What is the address you want to send to?")
+    to_addr = input("Enter the Email Address Here: ")
+
+    # Then it asks what the subject of the email should be to and adds the users input to the variable subject.
+
+    print("What do you want the subject to be?")
+    subject = input("Enter the subject here: ")
+
+    # Then it asks what the content of the email should be to and adds the users input to the variable content.
+
+    print("What do you want the content to be?")
+    content = input("Enter the content here: ")
+
+    # Then it creates.
+
+    message = MIMEMultipart()
+
+    # This takes the user inputed from address and ties it to the key From
+
+    message['From'] = from_addr
+
+    # This takes the user inputed to address and ties it to the key To
+
+    message['To'] = to_addr
+
+    # This takes the user inputed from subject and ties it to the key Subject
+
+    message['Subject'] = subject
+
+    # This uses MIMEText to take the inputed content to create a formated body variable.
+
+    body = MIMEText(content, 'plain')
+
+    # This uses the .attach() method to add the body variable to the email.
+
+    message.attach(body)
+
+    # Next I created a variable called filename that consisted of the nmap scan file.
+
+    file_name = 'nmap_port_scan.txt'
+
+    # This uses With to open the file in read mode and use that as a temp variable file
+
+    with open(file_name, 'r') as file:
+
+        # This creates a variable part that uses the MIMEApplication() to read the file and name it with the baseline formating (ie. /Users/macbookair) then the file name namp_port_scan.txt
+
+        part = MIMEApplication(file.read(), Name=basename(file_name))
+
+        # This formats part to the requirements of an email attachment using Content_Disposition to fill in the email header request assigningg it as an attchment and assigning file_name be in curly brackets
+
+        part['Content-Disposition'] = 'attachment; filename="{}"'.format(basename(file_name))
+
+    # This attaches part to the message building on the email
+
+    message.attach(part)
+
+    # This prints out a request for the sending emails smtp server address (ex smtp.gmail.com)
+
+    print("Please enter your SMTP Server address.")
+
+    # This creates a variable called server_address using the users input
+
+    server_address = input("Enter the Address Here: ")
+
+    # Next the program asks for the SMTP servers port number (ex 587)
+
+    print("Please enter your SMTP Server port number.")
+
+    # This creates a varable called server_address_port using the users input
+
+    server_address_port = input("Enter the port here: ")
+
+    # Next the program asks for the password to the SMTP server
+
+    print("Please enter your password.")
+
+    # This creates a variable called server_password using the users input
+
+    server_password = input("Enter password here: ")
+
+    # this creates variable that will create a default ssl cert
+
+    context=ssl.create_default_context()
+
+    # This creates a variable names server that uses smtplib to start a SMTP connection using the variables server_address and server_address_port
+
+    server = smtplib.SMTP(server_address, server_address_port)
+
+    # Next is the tls handshake using the cert created before in TLS 1.2 (It is depricatied but it seems to work ok) and the server info provied to the server variable
+
+    server.starttls(context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
+
+    # Next is the login authentcation this takes the server variable and uses .login to take the from_addr variable and server_password variable to login into the smtp server
+
+    server.login(from_addr, server_password)
+
+    # Then using the .send_message on the server variable I attched the fully crafted message w/ attachment and used the from and to_addr to fill in the from and to protions of the email and then sends it via smtp.
+
+    server.send_message(message, from_addr=from_addr, to_addrs=[to_addr])
+
+# Lastly if the user chose to not send the email the program quits using the quit() function
+
+elif email == 'n':
+    quit()
